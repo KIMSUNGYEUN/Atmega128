@@ -1,0 +1,25 @@
+8개 모두 켜기
+#include <avr/io.h>
+int main()
+{
+	DDRA = 0xff;   //모두 출력으로 사용
+	PORTA = 0xff;  //모두 1로 출력함
+}
+1,3,5,7번만 켜기
+#include <avr/io.h>
+int main()
+{
+	DDRA = 0xff;   //모두 출력으로 사용
+	PORTA = 0xaa;  //1,3,5,7만 1로 출력
+}
+1초 딜레이 넣기
+#include <avr/io.h>
+
+void delay_sec(int sec)
+{
+	volatile int i, j, k;			//volatile 선언자 필요
+    
+    for(k=0; k<sec; k++)			//sec는 원하는 초 단위의 딜레이 값
+	for(i=0; i<1000; i++)			//외부루트 1000번
+        	for(j=0; j<1000; j++)		//내부루트 1000번
+}
