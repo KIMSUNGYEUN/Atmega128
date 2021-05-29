@@ -1,10 +1,33 @@
-#define F_CPU 16000000///////Line_lcd_4upcounter_이름_날짜
+/*
+ * Blue_Flag_White_Flag.c
+ *
+ * Created: 2021-05-13 오전 9:16:47
+ * Author : sungyeoun
+ */ 
+
+#define F_CPU 16000000///////Blue_flag_White_flag
 #include <avr/io.h>
 #include <util/delay.h>
+#define BV(n)
 
 void COMMAND(unsigned char byte);
 void DATA(unsigned char byte);
 void LCD_INIT(void);
+void random_char(void);
+void fnd_on(unsigned char i, unsigned char num);
+int game_score(unsigned char i, unsigned char num);
+int life = 0;
+int value;
+
+unsigned char fnd[10] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90};
+unsigned char fnd_seats [4] = {0x08,0x04,0x02,0x1};
+unsigned char string_start[]="GAME START";
+unsigned char string_over[]="GAME OVER";
+unsigned char string_Blue_up[]="Blue Flag UP";
+unsigned char string_Blue_down[]="Blue Flag Down";
+unsigned char string_White_up[]="White Flag UP";
+unsigned char string_White_down[]="White Flag Down";
+unsigned int score=0;
 
 void STRING(unsigned char font[], unsigned char n)
 {
@@ -17,36 +40,89 @@ void STRING(unsigned char font[], unsigned char n)
 
 int main(void)
 {
-	unsigned char string_Blue_up[]="Blue Flag UP";
-	unsigned char string_Blue_down[]="Blue Flag Down";
-	unsigned char string_White_up[]="White Flag UP";
-	unsigned char string_White_down[]="White Flag Down";
-	DDRC = 0xff;
+	
+	DDRA= 0xFF; // LED
+	DDRG=0x0F; // FND COM1 COM2 COM3 COM4
+	DDRF=0xFF;// FND a,b,c,d,e,f,g
+	DDRC = 0xff; // LCD
 	PORTC = 0x00;
-	/*unsigned char buff = 0xFF;
-	int led_count = 8;
-	DDRA = 0xFF;
-	PORTA = 0xFF*/
-    while (1) 
-    {
-		int value = random(0,3);
-		
-		if(value==0){
-			STRING(string_Blue_up,12);
-		}
-		if(value==1){
-			STRING(string_Blue_down,14);
-		}
-		if(value==2){
-			STRING(string_White_up,13);
-		}
-		if(value==3){
-			STRING(string_White_down,15);
-		}
-		//PORTA =led_count;
-		//_delay_ms(100);
-    }
+	DDRE = 0x00; // 버튼
+	
+	LCD_INIT();
+	
+	if ((PINE&0x01)==0x00)////시작 버튼이 눌렸을때
+	{
+		STRING(string_start,10);
+		while(1)
+			random_char();
+	}
+	if ((PINE&0x02)==0x00)////종료 버튼이 눌렸을때
+	{
+		LCD_INIT();
+		STRING(string_start,10);
+		_delay_ms(1000);
+	}
+	
+	if(value == 0 && (PINE&0x10)==0x00)///Blue Flag UP
+	{
+			score += 100;
+	}
+	if(value == 1 && (PINE&0x20)==0x00)///Blue Flag Down
+	{
+			score += 100;
+	}
+	if(value == 2 && (PINE&0x30)==0x00)///White Flag UP
+	{
+			score += 100;
+	}
+	if(value == 3 && (PINE&0x40)==0x00)///White Flag Down
+	{
+			score += 100;
+	}
+	else// led 역순으로 OFF
+	{
+		int i = 0;
+		PORTA &= ~(0x80>>i);
+		_delay_ms(500);
+		i++;
+	}
 	return 0;
+}
+void fnd_on(unsigned char i, unsigned char score)
+{
+	PORTF = fnd_seats[score % 10];
+	PORTG &= ~(PORTB & 0x1F);
+	PORTG |= (BV(i) & 0x1F);
+}
+
+int game_score(unsigned int score) 
+{
+		if (score > 9999) score = 0;
+		else if (score < 0) score = 9999;
+		
+		fnd_on(fnd_seats[0],score/1000);
+		_delay_ms(2);                      
+		fnd_on(fnd_seats[1],score/100%10);
+		_delay_ms(2);
+		fnd_on(fnd_seats[2],score/10%10);
+		_delay_ms(2);
+		fnd_on(fnd_seats[3],score%10);
+		_delay_ms(2);                          
+		
+}
+
+void random_char(void)
+{
+	while(1)
+		value = random(0,3);
+	if(value == 0)
+		STRING(string_Blue_up,12);
+	if(value == 1)
+		STRING(string_Blue_down,14);
+	if(value == 2)
+		STRING(string_White_up,13);
+	if(value == 3)
+		STRING(string_White_down,15);
 }
 
 void LCD_INIT(void)
