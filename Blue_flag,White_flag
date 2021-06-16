@@ -6,18 +6,20 @@
  */ 
 
 #define F_CPU 16000000///////Blue_flag_White_flag
+#define BV(n) (1 << n)
 #include <avr/io.h>
 #include <util/delay.h>
-#define BV(n) (1 << n)
 
 void COMMAND(unsigned char byte);
 void DATA(unsigned char byte);
 void LCD_INIT(void);
 void random_char(void);
-void fnd_on(unsigned char i, unsigned char score);
-void fnds_on(unsigned int score);
-int life = 0;
-int value;
+void fnd_score(unsigned int num);
+int life = 8;
+int value = 0;
+int cnt = 0;
+int n=0;
+int sum=0;
 
 unsigned char fnd[10] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90};
 unsigned char fnd_seats [4] = {0x08,0x04,0x02,0x1};
@@ -38,144 +40,180 @@ void STRING(unsigned char font[], unsigned char n)
 	}
 }
 
+void MOVE(int y, int x)     //커서 이동
+{
+	unsigned char data;
+	if(y==1) 	data=0x80+x-1;           //1행
+	else     	data=0xc0+x-1;            //2행
+	COMMAND(data);
+}
+
 int main(void)
 {
 	
 	DDRA= 0xFF; // LED
-	DDRG=0x0F; // FND COM1 COM2 COM3 COM4
-	DDRF=0xFF;// FND a,b,c,d,e,f,g
-	DDRC = 0xff; // LCD
+	DDRG=0xFF; // FND COM1 COM2 COM3 COM4
+	PORTG=0x00;
+	DDRB=0xFF;// FND a,b,c,d,e,f,g
+	PORTB=0x00;
+	DDRC = 0xFF; // LCD
 	PORTC = 0x00;
 	DDRE = 0x00; // 버튼
 	
-	LCD_INIT();
-	STRING(string_start,10);
-	
-	while(1)
-	{
-	
-		if ((PINE&0x01)==0x00)////시작 버튼이 눌렸을때
+	if(n==0){
+		LCD_INIT();
+		STRING(string_start,10);
+		
+		while(1)
 		{
-			PORTA = 0xFF;
-			LCD_INIT();
-			while(1){
-				value = random(0,3);
+	
+			if ((PINE&0x01)==0x00)////시작 버튼이 눌렸을때
+			{
+				n=1;
+				PORTA = 0xFF;
+				LCD_INIT();
+				while(1){
+					value = random(0,3);
 				
-				if(value == 0){
-					STRING(string_Blue_up,12);
-					_delay_ms(1000);
-					LCD_INIT();
-				}
+					if(value == 0){
+						STRING(string_Blue_up,12);
+						_delay_ms(1000);
+						LCD_INIT();
+					}
 				
-				if(value == 1){
-					STRING(string_Blue_down,14);
-					_delay_ms(1000);
-					LCD_INIT();
+					if(value == 1){
+						STRING(string_Blue_down,14);
+						_delay_ms(1000);
+						LCD_INIT();
+					}
+					if(value == 2){
+						STRING(string_White_up,13);
+						_delay_ms(1000);
+						LCD_INIT();
+					}
+					if(value == 3){
+						STRING(string_White_down,15);
+						_delay_ms(1000);
+						LCD_INIT();
+					}
+					if ((PINE&0x10)==0x00){
+						if(value == 0 && (PINE&0x10)==0x00)///Blue Flag UP
+						{
+							cnt++;
+							score += 100;
+							_delay_ms(1000);
+						}
+						else {
+							cnt=0;
+							life=life-1;
+						}
+					}
+					if ((PINE&0x20)==0x00){
+						if(value == 1 && (PINE&0x20)==0x00)///Blue Flag UP
+						{
+							cnt++;
+							score += 100;
+							_delay_ms(1000);
+						}
+						else {
+							cnt=0;
+							life=life-1;
+						}
+					}
+					if ((PINE&0x40)==0x00){
+						if(value == 2 && (PINE&0x40)==0x00)///Blue Flag UP
+						{
+							cnt++;
+							score += 100;
+							_delay_ms(1000);
+						}
+						else {
+							cnt=0;
+							life=life-1;
+						}
+					}
+					if ((PINE&0x80)==0x00){
+						if(value == 3 && (PINE&0x80)==0x00)///Blue Flag UP
+						{
+							cnt++;
+							score += 100;
+							_delay_ms(1000);
+						}
+						else {
+							cnt=0;
+							life=life-1;
+						}
+					}
+					if(life==0){
+						n=0;
+						fnd_score(score);
+						LCD_INIT();
+						MOVE(1,1);
+						STRING(string_over,9);
+						MOVE(2,1);
+						DATA(score/1000+0x30);
+						MOVE(2,2);
+						DATA(score/100%10+0x30);
+						MOVE(2,3);
+						DATA(score/10%10+0x30);
+						MOVE(2,4);
+						DATA(score%10+0x30);
+						break;
+					}
+					
+					switch(life){
+						case 8:
+							PORTA=0xFF;
+						case 7:
+							PORTA=0x4F;
+						case 6:
+							PORTA=0x2F;
+						case 5:
+							PORTA=0x1F;
+						case 4:
+							PORTA=0x0F;
+						case 3:
+							PORTA=0x04;
+						case 2:
+							PORTA=0x02;
+						case 1:
+							PORTA=0x01;
+					}
+					
+					if (cnt%8==0)
+					{
+						life=life+1;
+					}
 				}
-				if(value == 2){
-					STRING(string_White_up,13);
-					_delay_ms(1000);
-					LCD_INIT();
-				}
-				if(value == 3){
-					STRING(string_White_down,15);
-					_delay_ms(1000);
-					LCD_INIT();
-				}
-				
 			}
 		}
+		return 0;
 	}
-	if ((PINE&0x10)==0x00){
-		if(value == 0 && (PINE&0x10)==0x00)///Blue Flag UP
-		{
-			score += 100;
-		}
-		
-		if(value !=0 || (PINE&0x10)!=0x00)
-		{
-			int i = 0;
-			PORTA &= ~(0x80>>i);
-			_delay_ms(500);
-			i++;
-		}
-	}
-	
-	if ((PINE&0x20)==0x00){
-		if(value == 1 && (PINE&0x20)==0x00)///Blue Flag Down
-		{
-			score += 100;
-		}
-		
-		if(value !=1 || (PINE&0x20)!=0x00)
-		{
-			int i = 0;
-			PORTA &= ~(0x80>>i);
-			_delay_ms(500);
-			i++;
-		}
-	}
-	
-	if ((PINE&0x30)==0x00){
-		if(value == 2 && (PINE&0x30)==0x00)///White Flag UP
-		{
-			score += 100;
-		}
-		
-		if(value !=2 || (PINE&0x30)!=0x00)
-		{
-			int i = 0;
-			PORTA &= ~(0x80>>i);
-			_delay_ms(500);
-			i++;
-		}
-	}
-	
-	if ((PINE&0x40)==0x00){
-		if(value == 3 && (PINE&0x40)==0x00)///White Flag Down
-		{
-			score += 100;
-		}
-		
-		if(value !=3 || (PINE&0x40)!=0x00)
-		{
-			int i = 0;
-			PORTA &= ~(0x80>>i);
-			_delay_ms(500);
-			i++;
-		}
-	}
-	return 0;
-}
-/*void fnd_on(unsigned char i, unsigned char score)
-{
-	PORTF = fnd[score % 10];
-	PORTG &= ~(PORTG & 0x1F);
-	PORTG |= (BV(i) & 0x1F);
-}*/
-
-void fnd_on(unsigned char i, unsigned char num)
-{
-	PORTF = fnd[num % 10];
-	PORTG &= ~(PORTG & 0x1F);
-	PORTG |= (BV(i) & 0x1F);
 }
 
-void fnds_on(unsigned int num) 
+void fnd_score(unsigned int num)
 {
-		if (num > 9999) num = 0;
-		else if (num < 0) num = 9999;
-		
-		fnd_on(0,num/1000);
-		_delay_ms(2);                      
-		fnd_on(1,num/100%10);
-		_delay_ms(2);
-		fnd_on(2,num/10%10);
-		_delay_ms(2);
-		fnd_on(3,num%10);
-		_delay_ms(2);
+	if(sum<num)sum=num;
+		int thou=sum/1000;                          //1000의 자리 분리
+		int hund=sum/100%10;                           //100의 자리 분리
+		int ten=sum/10%10;                             //10의 자리 분리
+		int one=sum%10;
+			
+		for(int i=0;i<25;i++){
+			PORTG=fnd_seats[3];
+			PORTB=fnd[one];
+			_delay_ms(1);
+			PORTG=fnd_seats[2];
+			PORTB=fnd[ten];
+			_delay_ms(1);
+			PORTG=fnd_seats[1];
+			PORTB=fnd[hund];
+			_delay_ms(1);
+			PORTG=fnd_seats[0];
+			PORTB=fnd[thou];
+			_delay_ms(1);
+		}
 }
-
 void LCD_INIT(void)
 {
 	_delay_ms(30);	// 전원 투입 후 30ms 이상 지연
