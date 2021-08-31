@@ -1,0 +1,168 @@
+//추가 수정 필요!!
+// 버튼으로 제어가 
+
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <util/delay.h>
+#include <avr/interrupt.h>
+#define BAUDRATE(x) ((F_CPU / 16 / x) - 1)
+
+volatile char speed=0;
+unsigned char buff = 0x01;
+
+unsigned char buf;
+unsigned int USART1_rx_end = 0;
+unsigned int USART1_len = 0;
+unsigned char Rx_Buffer[200];
+	
+void uart_init(unsigned int baud)
+{
+	UBRR0H = (unsigned char)(baud >> 8);
+	UBRR0L = (unsigned char)baud;
+	UCSR0B = (1 << TXEN0) | (1 << RXEN0) |			(1<<RXCIE0);
+}
+
+void uart_write(unsigned char data)
+{
+	while (!(UCSR0A & (1 << UDRE0)));
+	UDR0 = data;
+}
+
+void DC_Motor(int speed)
+{
+	if( speed < 0) speed=0;
+	if( speed > 100) speed=100;
+	OCR1A=speed;
+}
+
+
+int main(void)
+{
+	int arr[6] = {0,60,70,80,90,100};
+	int i= 0;
+	int a = 0;
+	DDRB=0x60;
+	DDRA=0xFF;
+	DDRD=0x00;
+	
+	TCCR1A=0x82;
+	TCCR1B=0x1A;
+	OCR1A=0;
+	OCR1B=0;
+	ICR1=100;
+	PORTA=buff;
+	uart_init(BAUDRATE(9600));
+	sei();
+	while(1)
+	{
+		if(USART1_rx_end == 1){
+			switch(Rx_Buffer[1]){
+				case '0' : a = 0; break;
+				case '6' : a = 1; break;
+				case '7' : a = 2; break;
+				case '8' : a = 3; break;
+				case '9' : a = 4; break;
+				case '1' : a = 5; break;
+			}
+			USART1_rx_end = 0;
+			USART1_len = 0;
+		}
+		
+		if (a == 0)
+		{
+			PORTA=0x01;
+			_delay_ms(100);
+			DC_Motor(0);
+		}
+		else if (a == 1)
+		{
+			PORTA=0x02;
+			_delay_ms(100);
+			DC_Motor(60);
+		}
+		else if (a == 2)
+		{
+			PORTA=0x04;
+			_delay_ms(100);
+			DC_Motor(70);
+		}
+		else if (a == 3)
+		{
+			PORTA=0x08;
+			_delay_ms(100);
+			DC_Motor(80);
+		}
+		else if (a == 4)
+		{
+			PORTA=0x10;
+			_delay_ms(100);
+			DC_Motor(90);
+		}
+		
+		
+		else if (a == 5)
+		{
+			PORTA=0x20;
+			_delay_ms(100);
+			DC_Motor(100);
+		}
+		
+		
+		if((PIND&0x10)==0x00)
+		{
+			buff = buff <<1;
+			PORTA=buff;
+			_delay_ms(100);
+			speed=arr[++i];
+			DC_Motor(speed);
+		}
+		else if((PIND&0x20)==0x00)
+		{
+			buff = buff >> 1;
+			PORTA=buff;
+			_delay_ms(100);
+			speed=arr[--i];
+			DC_Motor(speed);
+		}
+		else if((PIND&0x40)==0x00)
+		{
+			buff=0x01;
+			PORTA=buff;
+			_delay_ms(100);
+			speed=0;
+			DC_Motor(speed);
+		}
+		_delay_ms(100);
+	}
+}
+
+ISR(USART0_RX_vect)
+{
+	static uint8_t usart1_chk=0;
+	buf = UDR0;
+	switch(usart1_chk)
+	{
+		case 0:
+		if(buf ==0x02){
+			Rx_Buffer[USART1_len]= buf;
+			USART1_len++;
+			usart1_chk=1;
+			USART1_rx_end=0;
+		}
+		else usart1_chk=0;
+		break;
+		
+		case 1:
+		Rx_Buffer[USART1_len]= buf;
+		USART1_len++;
+		
+		if(buf ==0x03){
+			USART1_rx_end=1;
+			usart1_chk=0;
+		}
+		break;
+		default :
+		usart1_chk=0;
+		break;
+	}
+}
