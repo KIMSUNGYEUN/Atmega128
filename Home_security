@@ -1,0 +1,118 @@
+#include <avr/io.h>
+#define F_CPU 16000000UL
+#include <util/delay.h>
+#include <avr/interrupt.h>
+/*
+#define CDS_10 341
+#define CDS_20 450
+#define CDS_50 550
+#define CDS_80 650
+#define CDS_100 731
+*/
+#define BV(n) (1<<n)
+
+#define OCR1_R OCR1B
+#define OCR1_G OCR1C
+#define OCR1_B OCR1A
+
+#define TRIG 6
+#define ECHO 7
+#define SOUND_VELOCITY 340UL
+
+void int_adc();
+unsigned short read_adc();
+
+void set_color(int red, int green, int blue){
+	OCR1_R = red & 255;
+	OCR1_G = green & 255;
+	OCR1_B = blue & 255;
+}
+void timer_init() {
+	TCCR1A |= BV(WGM10) | BV(COM1A1) | BV(COM1B1) | BV(COM1C1);
+	TCCR1B |= BV(WGM12) | BV(CS11);
+	set_color(0, 0, 0);
+}
+
+int main(void)
+{
+	unsigned short value;
+	DDRF = 0x00;
+	DDRD = 0xFF;
+	init_adc();
+	DDRB = BV(5) | BV(6) | BV(7);
+	timer_init();
+	PORTD = 0x01;
+	DDRA = 0x10;   // 포트 A의 bit4 를 출력 상태로 세팅, 부저 핀
+					// 500 Hz로 동작
+	unsigned int distance;
+	unsigned int i;
+	
+	DDRE = ((DDRE | (1<<TRIG)) & ~(1<<ECHO)); //초음파 핀
+	                  
+	while(1)                             
+	{
+		value = read_adc();
+		
+		///초음파
+		
+		TCCR1B = 0x03;
+		PORTE &= ~(1<<TRIG);
+		_delay_us(10);
+		PORTE |= (1<<TRIG);
+		_delay_us(10);
+		PORTE &= ~(1<<TRIG);
+		while(!(PINE & (1<<ECHO)));
+		TCNT1 = 0x0000;
+		while(PINE & (1<<ECHO));
+		TCCR1B = 0x00;
+		distance = (unsigned int)(SOUND_VELOCITY * (TCNT1 * 4 / 2) / 1000);
+
+		//음파의 속도는 340m/s 이므로 1cm를 이동하는데 약 29us. 왕복거리
+		////////
+		if(distance > 200){
+			set_color(255,255,255);
+		}
+		else if(distance >=131 && distance <=200){
+			set_color(255,0,0);
+			_delay_ms(100);
+		}
+		else if(distance >=101 && distance <=130){
+			set_color(0,0,255);
+			_delay_ms(100);
+		}
+		else if(distance >=71 && distance <=100){
+			set_color(255,0,255);
+			_delay_ms(100);
+		}
+		else if(distance >=31 && distance <=70){
+			set_color(255,255,0);
+			_delay_ms(100);
+		}
+		else if(distance <=30){
+			set_color(0,255,0);
+			_delay_ms(300);
+		}
+		else;
+		_delay_ms(100);
+	}
+}
+
+int init_adc(void)
+{
+	ADMUX = 0x40;
+	ADCSRA = 0x87;    // adc en
+}
+unsigned short read_adc()
+{
+	unsigned char adc_low, adc_high;
+	unsigned short value;
+
+	ADCSRA |= 0x40;    // ADC start
+	// ADC Complete
+	while((ADCSRA & 0x10) != 0x10);
+	adc_low = ADCL;
+	adc_high = ADCH;
+	value = (adc_high << 8) | adc_low;
+	
+	return value;
+}
