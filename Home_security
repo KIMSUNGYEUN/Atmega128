@@ -2,13 +2,22 @@
 #define F_CPU 16000000UL
 #include <util/delay.h>
 #include <avr/interrupt.h>
-/*
+
+
+//  PC7 PC6 PC5 PC4 PC3 PC2 PC1 PC0
+//  DB7 DB6 DB5 DB4          E   RW  RS
+
+void COMMAND(unsigned char byte);
+void DATA(unsigned char byte);
+void LCD_INIT(void);
+
+
 #define CDS_10 341
 #define CDS_20 450
 #define CDS_50 550
 #define CDS_80 650
 #define CDS_100 731
-*/
+
 #define BV(n) (1<<n)
 
 #define OCR1_R OCR1B
@@ -21,6 +30,15 @@
 
 void int_adc();
 unsigned short read_adc();
+
+void STRING(unsigned char font[], unsigned char n)
+{
+	unsigned char i;
+	for(i=0;i<n;i++)
+	{
+		DATA(font[i]);
+	}
+}
 
 void set_color(int red, int green, int blue){
 	OCR1_R = red & 255;
@@ -35,6 +53,15 @@ void timer_init() {
 
 int main(void)
 {
+	
+	DDRC = 0xff;
+	PORTC = 0x00;
+	
+	LCD_INIT();
+	
+	unsigned char string1[]="detected";
+	unsigned char string2[]="undetected";
+	unsigned char string3[]="afternoon";
 	unsigned short value;
 	DDRF = 0x00;
 	DDRD = 0xFF;
@@ -69,31 +96,58 @@ int main(void)
 
 		//음파의 속도는 340m/s 이므로 1cm를 이동하는데 약 29us. 왕복거리
 		////////
-		if(distance > 200){
-			set_color(255,255,255);
-		}
-		else if(distance >=131 && distance <=200){
-			set_color(255,0,0);
+		if(value>=CDS_10){
+			LCD_INIT();
+			if(distance > 200){
+				set_color(255,255,255);
+				STRING(string2,10);
+			}
+			else if(distance >=131 && distance <=200){
+				set_color(255,0,0);
+				STRING(string2,10);
+				_delay_ms(100);
+			}
+			else if(distance >=101 && distance <=130){
+				set_color(0,0,255);
+				STRING(string2,10);
+				_delay_ms(100);
+			}
+			else if(distance >=71 && distance <=100){
+				set_color(255,0,255);
+				STRING(string2,10);
+				_delay_ms(100);
+			}
+			else if(distance >=31 && distance <=70){
+				set_color(255,255,0);
+				STRING(string1,8);
+				for(i=0; i<5; i++)
+				{
+					PORTA = 0x10;
+					_delay_ms(50);
+					PORTA = 0x00;
+					_delay_ms(50);
+				}
+				_delay_ms(100);
+			}
+			else if(distance <=30){
+				set_color(0,255,0);
+				STRING(string1,8);
+				for(i=0; i<5; i++)
+				{
+					PORTA = 0x10;
+					_delay_ms(100);
+					PORTA = 0x00;
+					_delay_ms(100);
+				}
+				_delay_ms(300);
+			}
+			else;
 			_delay_ms(100);
 		}
-		else if(distance >=101 && distance <=130){
-			set_color(0,0,255);
+		else{
+			set_color(0,0,0);
 			_delay_ms(100);
 		}
-		else if(distance >=71 && distance <=100){
-			set_color(255,0,255);
-			_delay_ms(100);
-		}
-		else if(distance >=31 && distance <=70){
-			set_color(255,255,0);
-			_delay_ms(100);
-		}
-		else if(distance <=30){
-			set_color(0,255,0);
-			_delay_ms(300);
-		}
-		else;
-		_delay_ms(100);
 	}
 }
 
@@ -115,4 +169,68 @@ unsigned short read_adc()
 	value = (adc_high << 8) | adc_low;
 	
 	return value;
+}
+
+void LCD_INIT(void)
+{
+	_delay_ms(30);	// 전원 투입 후 30ms 이상 지연
+	
+	//Function set
+	COMMAND(0b00101000);
+	// 인터페이스(DL)=0(4bit), 라인(N)=1(2라인), 폰트(F)=0(5*8 dot)
+	_delay_us(39);	// 39us 이상 지연
+
+	//Display ON/OFF Control
+	COMMAND(0b00001100);
+	// 화면 표시(D)=1(on), 커서(C)=0(off), 블링크(B)=0(off)
+	_delay_us(39);	// 39us 이상 지연
+
+	//Clear Display
+	COMMAND(0b00000001);
+	// 화면을 클리어하고 , 커서가 홈위치인 0번지로 돌아감.
+	_delay_ms(1.53);	// 1.53ms 이상 지연
+
+	//Entry Mode Set
+	COMMAND(0b00000110);
+	// 커서방향(I/D)=1(address증가), 표시이동(S)=0(이동하지 않음)
+}
+
+void COMMAND(unsigned char byte)
+{
+	_delay_ms(2);
+
+	PORTC=byte&0xf0;// 상위4비트 명령어 쓰기
+	PORTC&=0b11111100;  // RS = 0, RW = 0, 명령어를 쓰도록 설정
+	_delay_us(1);
+	PORTC|=0b00000100; // E = 1, lcd 동작
+	_delay_us(1);
+	PORTC&=0b11111011;// E = 0
+
+	PORTC=(byte<<4)&0xf0;// 하위4비트 명령어 쓰기
+	PORTC&=0b11111100;// RS = 0, RW = 0, 명령어를 쓰도록 설정
+	_delay_us(1);
+	PORTC|=0b00000100; // E = 1, lcd 동작
+	_delay_us(1);
+	PORTC&=0b11111011;// E = 0
+}
+
+void DATA(unsigned char byte)
+{
+	_delay_ms(2);
+
+	PORTC=byte&0xf0;// 상위4비트 명령어 쓰기
+	PORTC |= 0b00000001;// RS = 1, 데이터 설정
+	PORTC &= 0b11111101;// RW = 0, 쓰기 설정
+	_delay_us(1);
+	PORTC|=0b00000100; // E = 1, lcd 동작
+	_delay_us(1);
+	PORTC&=0b11111011;// E = 0
+
+	PORTC=(byte<<4)&0xf0;// 하위4비트 데이터 쓰기
+	PORTC |= 0b00000001;// RS = 1, 데이터 설정
+	PORTC &= 0b11111101;// RW = 0, 쓰기 설정
+	_delay_us(1);
+	PORTC|=0b00000100; // E = 1, lcd 동작
+	_delay_us(1);
+	PORTC&=0b11111011;// E = 0
 }
