@@ -109,7 +109,7 @@ int main(void)
 						}
 					}
 					if ((PINE&0x20)==0x00){
-						if(value == 1 && (PINE&0x20)==0x00)///Blue Flag UP
+						if(value == 1 && (PINE&0x20)==0x00)///Blue Flag Down
 						{
 							cnt++;
 							score += 100;
@@ -121,7 +121,7 @@ int main(void)
 						}
 					}
 					if ((PINE&0x40)==0x00){
-						if(value == 2 && (PINE&0x40)==0x00)///Blue Flag UP
+						if(value == 2 && (PINE&0x40)==0x00)///Blue White UP
 						{
 							cnt++;
 							score += 100;
@@ -133,7 +133,7 @@ int main(void)
 						}
 					}
 					if ((PINE&0x80)==0x00){
-						if(value == 3 && (PINE&0x80)==0x00)///Blue Flag UP
+						if(value == 3 && (PINE&0x80)==0x00)///Blue White Down
 						{
 							cnt++;
 							score += 100;
